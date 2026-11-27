@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEA Hardness Prediction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a metallurgy lab instrument, precise and calm
+   IDEA: a Vickers hardness tester's readout - eyepiece view of the indent beside the number
+   PICTURE: polished, etched specimen disc with the diamond indent sized from the predicted HV
+   COLOUR and TYPE: steel blue-grey ground, white panels, copper accent; Archivo + IBM Plex Sans
+   LAYOUT: inputs column left, readout panel right; stacked on phones */
+:root{color-scheme:light dark;
+--bg:light-dark(#e9edf1,#11161c);--panel:light-dark(#ffffff,#1a2129);--ink:light-dark(#18212b,#e6ebf0);--mute:light-dark(#5b6876,#9aa7b4);
+--line:light-dark(#d3dae1,#2c3640);--steel:light-dark(#24384f,#9cc0e4);--cu:light-dark(#b0581a,#e08a4a);--ok:light-dark(#1f7a4d,#5ccf93);--warn:light-dark(#9c3b1c,#f0915f);
+--field:light-dark(#f3f5f7,#141a20)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+button,input{font-family:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans",system-ui,sans-serif;overflow-x:clip}
+header{padding:28px max(4vw,16px) 8px;max-width:1240px;margin:0 auto}
+h1{font:800 clamp(28px,4vw,42px)/1.05 Archivo,sans-serif;margin:0 0 8px;text-wrap:balance;color:var(--steel)}
+header p{margin:0;color:var(--mute);max-width:70ch}
+main{max-width:1240px;margin:0 auto;padding:18px max(4vw,16px) 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:22px}
+@media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+h2{font:700 20px/1.2 Archivo,sans-serif;margin:0 0 14px}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.presets button{font:500 14px "IBM Plex Sans",system-ui,sans-serif;min-height:36px;padding:6px 12px;border-radius:18px;border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer}
+.presets button:hover{border-color:var(--steel)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:480px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+label{display:block;font-size:14px;color:var(--mute)}
+label b{color:var(--ink);font-weight:600}
+input[type=number]{width:100%;font:500 16px "IBM Plex Sans",system-ui,sans-serif;padding:10px 10px;min-height:44px;border-radius:9px;border:1px solid var(--line);background:var(--field);color:var(--ink);margin-top:4px;text-align:right}
+input:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--cu);outline-offset:2px}
+details{margin-top:14px}summary{cursor:pointer;font-weight:600;min-height:32px}
+.total{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0 4px;padding:10px 12px;border-radius:9px;background:var(--field)}
+.total strong{font:700 18px Archivo,sans-serif;white-space:nowrap}
+.total.bad strong{color:var(--warn)}.total.good strong{color:var(--ok)}
+.chk{display:flex;gap:8px;align-items:center;font-size:15px;color:var(--ink);min-height:44px;cursor:pointer}
+.chk input{width:20px;height:20px;accent-color:var(--cu)}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.go{font:800 16px Archivo,sans-serif;letter-spacing:.02em;min-height:48px;padding:0 22px;border-radius:10px;border:0;background:var(--cu);color:#fff;cursor:pointer}
+.reset{font:600 15px "IBM Plex Sans",system-ui,sans-serif;min-height:48px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.msg{margin-top:12px;padding:10px 12px;border-radius:9px;font-size:15px;display:none}
+.msg.err{display:block;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.msg.info{display:block;background:color-mix(in srgb,var(--steel) 12%,transparent)}
+.read{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
+@media(max-width:520px){.read{grid-template-columns:minmax(0,1fr)}}
+.lab{font-size:13px;color:var(--mute);margin:0}
+.hv{font:800 clamp(52px,8vw,84px)/1 Archivo,sans-serif;color:var(--steel);margin:4px 0;white-space:nowrap}
+.hv small{font-size:.35em;color:var(--mute);font-weight:700}
+.unc{font-size:15px;margin:6px 0 0}
+.fig{position:relative;aspect-ratio:1/1;max-width:300px;width:100%;justify-self:center}
+.fig svg{position:absolute;inset:0;width:100%;height:100%}
+.status{margin:16px 0 0;padding:10px 12px;border-radius:9px;font-size:15px}
+.status.ok{background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.status.no{background:color-mix(in srgb,var(--warn) 13%,transparent)}
+.status ul{margin:6px 0 0;padding-left:20px}
+.bars{margin-top:16px;display:grid;gap:6px}
+.bar{display:grid;grid-template-columns:2.6em minmax(0,1fr) 5.6em;gap:8px;align-items:center;font-size:14px}
+.bar i{display:block;height:12px;border-radius:6px;background:var(--steel)}
+.bar span:last-child{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.empty{color:var(--mute);padding:30px 0;text-align:center}
+footer{max-width:1240px;margin:0 auto;padding:0 max(4vw,16px) 40px;color:var(--mute);font-size:14px}
+footer p{max-width:90ch}
+@media(prefers-reduced-motion:no-preference){#indent{transition:all .5s ease}}
+</style>
+</head>
+<body>
+<header>
+  <h1>High-Entropy Alloy Hardness Prediction System</h1>
+  <p>An interactive machine-learning-based tool for predicting the Vickers hardness of high-entropy alloys from their elemental composition.</p>
+</header>
+<main>
+  <section class="card" aria-labelledby="inh">
+    <h2 id="inh">1. Enter the alloy composition (at.%)</h2>
+    <div class="presets" id="presets"></div>
+    <div class="grid" id="main-in"></div>
+    <details><summary>Other supported elements (Ti, Mo, Nb, Mn, V, Ta, Zr, Hf, W)</summary><div class="grid" id="other-in" style="margin-top:10px"></div></details>
+    <div class="total" id="totbox"><span>Current total</span><strong id="tot">100.00 at.%</strong></div>
+    <label class="chk"><input type="checkbox" id="norm"> Normalise to 100 at.%</label>
+    <div class="btns"><button class="go" id="go">PREDICT HARDNESS</button><button class="reset" id="reset">Reset</button></div>
+    <div class="msg" id="msg" role="status"></div>
+    <p class="lab" style="margin-top:16px" id="modelinfo">Loading the trained model…</p>
+  </section>
+
+  <section class="card" aria-labelledby="outh">
+    <h2 id="outh">2. Result</h2>
+    <div id="out"><p class="empty">Enter a composition and press <b>PREDICT HARDNESS</b>.</p></div>
+  </section>
+</main>
+<footer>
+  <p><b>Disclaimer.</b> Predictions are computational estimates from a Support Vector Regression model trained on 447 literature hardness records (MPEA dataset, Borg et al., Sci. Data 7, 430, 2020). They are not experimentally validated measurements. Hardness depends strongly on processing (casting, annealing, powder metallurgy), which this composition-based model does not take as input; typical error is about 100 HV for alloys similar to the training data and about 140 HV for data from a new laboratory. CALPHAD phase fractions are not calculated here. The uncertainty shown is the predictive standard deviation of a companion Gaussian-process model, not a confidence percentage. The indent drawing is an illustration: the diagonal a Vickers indent would have at a 10 kgf load for the predicted HV (HV = 1.8544 F/d²).</p>
+  <p>This page runs the same exported model and feature equations as the project's Streamlit app (08_Web_Application); predictions agree to within 0.0001 HV.</p>
+</footer>
+<script src="hea.js"></script>
+<script>
+{
+const MAIN = ['Al','Co','Cr','Cu','Fe','Ni'], OTHER = ['Ti','Mo','Nb','Mn','V','Ta','Zr','Hf','W'];
+const NAME = {Al:'Aluminium',Co:'Cobalt',Cr:'Chromium',Cu:'Copper',Fe:'Iron',Ni:'Nickel',Ti:'Titanium',Mo:'Molybdenum',Nb:'Niobium',Mn:'Manganese',V:'Vanadium',Ta:'Tantalum',Zr:'Zirconium',Hf:'Hafnium',W:'Tungsten'};
+const DEF = {Al:20,Co:20,Cr:20,Cu:10,Fe:15,Ni:15};
+const PRESETS = [['Example',DEF],['CoCrFeNi',{Co:25,Cr:25,Fe:25,Ni:25}],['Al0.5CoCrFeNi',{Al:11.1,Co:22.2,Cr:22.2,Fe:22.2,Ni:22.3}],['AlCoCrFeNi',{Al:20,Co:20,Cr:20,Fe:20,Ni:20}],['CoCrFeMnNi',{Co:20,Cr:20,Fe:20,Mn:20,Ni:20}],['NbMoTaW',{Nb:25,Mo:25,Ta:25,W:25}]];
+const DESC = [['dH_mix','ΔH mix','kJ/mol'],['dS_mix','ΔS mix','J/(mol·K)'],['delta','Atomic size mismatch δ','%'],['VEC','VEC','–'],['d_chi','Electronegativity diff. Δχ','–'],['Tm','Melting temperature Tm','K'],['Omega','Ω','–'],['G_mean','Shear modulus G','GPa'],['delta_G','Shear-modulus mismatch δG','%'],['E_coh','Cohesive energy','eV/atom'],['labusch_param','G·δ^(4/3)','GPa']];
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const field = e => `<label for="in-${e}"><b>${e}</b> ${NAME[e]}<input type="number" id="in-${e}" min="0" max="100" step="0.5" inputmode="decimal" value="${DEF[e]||0}"></label>`;
+$('main-in').innerHTML = MAIN.map(field).join(''); $('other-in').innerHTML = OTHER.map(field).join('');
+$('presets').innerHTML = PRESETS.map((p,i)=>`<button type="button" data-i="${i}">${p[0]}</button>`).join('');
+const ALL = MAIN.concat(OTHER);
+const read = () => { const c = {}; ALL.forEach(e => { const v = $('in-'+e).value.trim(); c[e] = v === '' ? 0 : Number(v); }); return c; };
+const setComp = c => { ALL.forEach(e => $('in-'+e).value = c[e] || 0); if (OTHER.some(e => c[e])) document.querySelector('details').open = true; updTotal(); };
+function updTotal(){ const t = Object.values(read()).reduce((a,b)=>a+(isFinite(b)?b:0),0); $('tot').textContent = t.toFixed(2)+' at.%';
+  $('totbox').className = 'total ' + (Math.abs(t-100) <= 0.01 ? 'good' : 'bad'); }
+ALL.forEach(e => $('in-'+e).addEventListener('input', updTotal));
+$('presets').addEventListener('click', ev => { const b = ev.target.closest('button'); if (b) setComp(PRESETS[+b.dataset.i][1]); });
+const msg = (t, cls) => { const m = $('msg'); m.textContent = t || ''; m.className = 'msg ' + (t ? cls : ''); };
+$('reset').addEventListener('click', () => { setComp(DEF); $('norm').checked = false; msg(''); $('out').innerHTML = '<p class="empty">Enter a composition and press <b>PREDICT HARDNESS</b>.</p>'; });
+
+let eng = null, META = null, DOMMAX = null;
+fetch('model.json').then(r => r.json()).then(M => { eng = makeEngine(M); META = M.meta; DOMMAX = M.dom.emax;
+  $('modelinfo').textContent = `Model: ${META.model_name} (composition + 11 descriptors), trained on ${META.n_train} records. Grouped CV R² ${META.cv_R2.toFixed(2)}, RMSE ${META.cv_RMSE.toFixed(0)} HV; unseen-alloy test R² ${META.test_R2.toFixed(2)}, RMSE ${META.test_RMSE.toFixed(0)} HV, MAE ${META.test_MAE.toFixed(0)} HV.`;
+}).catch(() => { $('modelinfo').textContent = 'The model file could not be loaded. Reload the page.'; });
+
+function indentSVG(hv){
+  const d = Math.sqrt(1.8544*10/Math.max(hv,1))*1000; // µm at 10 kgf
+  const FOV = 500, R = 140;
+  const s = Math.min(d/FOV*R, R*0.95);
+  return `<svg viewBox="0 0 300 300" role="img" aria-label="Illustrative Vickers indent, diagonal ${d.toFixed(0)} micrometres">
+  <defs><radialGradient id="pol" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".6" stop-color="#c9d0d7"/><stop offset="1" stop-color="#8f9aa5"/></radialGradient>
+  <linearGradient id="fa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b6672"/><stop offset="1" stop-color="#29323b"/></linearGradient></defs>
+  <circle cx="150" cy="150" r="146" fill="#1d252d"/><circle cx="150" cy="150" r="${R}" fill="url(#pol)"/>
+  <g opacity=".18" stroke="#3d4a57" fill="none">${[38,72,104,128].map(r=>`<path d="M${150-r} ${150+r*.2} q${r} ${-r*.5} ${2*r} 0"/>`).join('')}</g>
+  <g id="indent"><path d="M150 ${150-s} L${150+s} 150 L150 ${150+s} L${150-s} 150Z" fill="url(#fa)"/>
+  <path d="M150 ${150-s} L150 ${150+s} M${150-s} 150 L${150+s} 150" stroke="#9aa6b2" stroke-width="1" opacity=".7"/>
+  <path d="M150 ${150-s} L${150+s} 150" stroke="#e7ecf1" stroke-width="1.4" opacity=".8"/></g>
+  <path d="M10 150 H40 M260 150 H290 M150 10 V40 M150 260 V290" stroke="#e08a4a" stroke-width="2"/>
+  </svg>`;
+}
+$('go').addEventListener('click', () => {
+  if (!eng) { msg('The model is still loading. Try again in a moment.', 'err'); return; }
+  const c = read();
+  if (Object.values(c).some(v => !isFinite(v))) { msg('Every concentration must be a number.', 'err'); return; }
+  if (Object.values(c).some(v => v < 0)) { msg('Concentrations must be non-negative.', 'err'); return; }
+  const t = Object.values(c).reduce((a,b)=>a+b,0);
+  if (t <= 0) { msg('Enter at least one element with a concentration above 0 at.%.', 'err'); return; }
+  let note = '';
+  if (Math.abs(t-100) > 0.01) { if (!$('norm').checked) { msg(`The composition sums to ${t.toFixed(2)} at.%, not 100 at.%. Correct the values or tick "Normalise to 100 at.%".`, 'err'); return; }
+    note = `Composition summed to ${t.toFixed(2)} at.% and was normalised to 100 at.%.`; }
+  msg(note, 'info');
+  const r = eng.predict(c), els = ALL.filter(e => r.f[e]);
+  const formula = els.map(e => e + (100*r.f[e]).toFixed(1)).join(' ');
+  const st = r.dom.inDomain ? `<div class="status ok">✓ The composition lies inside the training domain of the model.</div>`
+    : `<div class="status no"><b>Outside the training domain – the prediction is an extrapolation.</b><ul>${r.dom.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`;
+  $('out').innerHTML = `<div class="read"><div><p class="lab">PREDICTED HARDNESS</p><p class="hv">${r.HV.toFixed(0)} <small>HV</small></p>
+    <p class="unc">Uncertainty (GPR, ±1σ): <b>± ${r.gp.sd.toFixed(0)} HV</b></p>
+    <p class="lab" style="margin-top:10px">Model used: ${esc(META.model_name)}<br>Input composition: ${esc(formula)}<br>Alloy system: ${esc(els.join('-'))}</p></div>
+    <div><div class="fig">${indentSVG(r.HV)}</div><p class="lab" style="text-align:center;margin-top:6px">Illustrative HV10 indent: diagonal ≈ ${Math.sqrt(18.544/Math.max(r.HV,1)*1e6).toFixed(0)} µm</p></div></div>${st}
+    <div class="bars">${els.map(e=>`<div class="bar"><span>${e}</span><i style="width:${(100*r.f[e]).toFixed(1)}%"></i><span>${(100*r.f[e]).toFixed(1)} at.%</span></div>`).join('')}</div>
+    <details><summary>View calculated descriptors</summary><table><tbody>${DESC.map(([k,n,u])=>`<tr><td>${n}</td><td class="n">${r.d[k].toPrecision(4)}</td><td>${u}</td></tr>`).join('')}</tbody></table></details>
+    <details><summary>Applicable composition range (training data)</summary><table><thead><tr><th>Element</th><th class="n">Max in training (at.%)</th></tr></thead><tbody>${ALL.map(e=>`<tr><td>${e}</td><td class="n">${(100*eng_dom(e)).toFixed(1)}</td></tr>`).join('')}</tbody></table></details>`;
+});
+function eng_dom(e){ return DOMMAX ? DOMMAX[e] : 0; }
+updTotal();
+}
+</script>
+</body>
